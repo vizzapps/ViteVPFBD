@@ -1,0 +1,46 @@
+{
+  "name": "magic-patterns-vite-template",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@solana/web3.js": "latest",
+    "bs58": "latest",
+    "lucide-react": "latest",
+    "@radix-ui/react-tooltip": "latest",
+    "clsx": "latest",
+    "tailwind-merge": "latest",
+    "@radix-ui/react-slot": "latest",
+    "class-variance-authority": "latest",
+    "@radix-ui/react-label": "latest",
+    "@radix-ui/react-switch": "latest",
+    "react-router-dom": "latest",
+    "sonner": "latest",
+    "@radix-ui/react-checkbox": "latest",
+    "@radix-ui/react-select": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.18",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^5.54.0",
+    "@typescript-eslint/parser": "^5.54.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.50.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.2.0",
+    "tailwindcss": "3.4.17",
+    "autoprefixer": "latest",
+    "postcss": "latest"
+  }
+}

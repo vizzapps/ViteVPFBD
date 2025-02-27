@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* ... other styles remain the same ... */
+.sidebar { 
+    background: -webkit-gradient(linear, left top, left bottom, from(#193e8e), to(#130e3b)) !important;
+    background: -webkit-linear-gradient(#193e8e, #130e3b) !important;
+    background: -moz-linear-gradient(#193e8e, #130e3b) !important;
+    background: -o-linear-gradient(#193e8e, #130e3b) !important;
+    background: linear-gradient(#193e8e, #130e3b) !important;
+    -webkit-box-shadow: 0px 0px 8px rgba(62, 57, 107, 0.7) !important;
+    box-shadow: 0px 0px 8px rgba(62, 57, 107, 0.7) !important;
+    z-index: 40;
+}
+body {
+    @apply overflow-hidden;
+    background-color:#F4F5FA
+}
+
+
+.card {
+    margin-bottom: 0.175rem;
+    border: none;
+    -webkit-box-shadow: 0px 1px 15px 1px rgba(62, 57, 107, 0.07);
+    box-shadow: 0px 1px 15px 1px rgba(62, 57, 107, 0.07);
+}
+
+.card {
+    position: relative;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+    -moz-box-orient: vertical;
+    -moz-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: #fff;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 0.35rem;
+}
+
+body {
+  font-family: "Muli", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+main {
+    height: calc(100vh - 4rem); /* Adjusted for new header height */
+    margin-left: 4rem;
+    width: calc(100% - 4rem);
+}
+
+.appBar {
+    margin-bottom: 0.175rem;
+    padding:5px;
+    border: none;
+    -webkit-box-shadow: 0px 1px 15px 1px rgba(62, 57, 107, 0.07);
+    box-shadow: 0px 1px 15px 1px rgba(62, 57, 107, 0.07);
+}
