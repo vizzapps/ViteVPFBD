@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,18 @@ export function TokenMetaDialog({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tokenMetaService = new TokenMetaService();
+  const cleanupImageUrl = (url: string | null) => {
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+    }
+  };
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        cleanupImageUrl(imagePreview);
+      }
+    };
+  }, [imagePreview]);
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -113,6 +125,9 @@ export function TokenMetaDialog({
       onSave(newToken);
       toast.success("Token meta saved successfully");
       onOpenChange(false);
+      if (imageUrl) {
+        cleanupImageUrl(imageUrl);
+      }
       setMeta({
         name: "",
         symbol: "",
@@ -125,7 +140,7 @@ export function TokenMetaDialog({
       setImageFile(null);
       setImagePreview(null);
     } catch (error) {
-      toast.error("Failed to save token meta");
+      toast.error(error instanceof Error ? error.message : "Failed to save token meta");
     } finally {
       setIsSaving(false);
     }

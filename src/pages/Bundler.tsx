@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardTitle, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Share2, RefreshCw, Coins, ArrowUp, ArrowDown, CheckCircle2, ClipboardCopy, MousePointerClick } from "lucide-react";
+import { Copy, Share2, RefreshCw, Coins, ArrowUp, ArrowDown, CheckCircle2, ClipboardCopy, MousePointerClick, PlusIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { TokenMetaDialog } from "../components/TokenMetaDialog";
 import { Badge } from "@/components/ui/badge";
 import { LaunchDialog } from "../components/LaunchDialog";
+import { TokenCreationService } from "../services/token/TokenCreationService";
+import { BundlerWizardDialog } from "../components/BundlerWizardDialog";
 interface Token {
   id: number;
   address: string;
@@ -65,6 +67,8 @@ export function Bundler() {
   const [isMetaDialogOpen, setIsMetaDialogOpen] = useState(false);
   const [isLaunchDialogOpen, setIsLaunchDialogOpen] = useState(false);
   const [selectedBundlerMode, setSelectedBundlerMode] = useState("delayed");
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const tokenCreationService = new TokenCreationService();
   const handleTokenSelect = (token: Token) => {
     const newSelected = token === selectedToken ? null : token;
     setSelectedToken(newSelected);
@@ -78,6 +82,76 @@ export function Bundler() {
   };
   const handleSaveTokenMeta = (newToken: Token) => {
     setTokens(prev => [newToken, ...prev]);
+  };
+  const [bundlerWallets, setBundlerWallets] = useState([]);
+  const [isBundlerEnabled, setIsBundlerEnabled] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBundleLaunched, setIsBundleLaunched] = useState(false);
+  const [isTokenCreated, setIsTokenCreated] = useState(false);
+  const [tokenDetails, setTokenDetails] = useState({
+    name: "",
+    symbol: "",
+    description: "",
+    telegram: "",
+    twitter: "",
+    website: "",
+    buyAmount: "0.1"
+  });
+  const [projectSettings, setProjectSettings] = useState({
+    tokenType: "",
+    bundlerEnabled: false,
+    bundlerWalletCount: 10,
+    delayBundlingEnabled: false,
+    bundlingDelay: 0,
+    initialSupplyToBundle: 1000000,
+    useRandomAmounts: false,
+    minBuy: 0.1,
+    maxBuy: 1
+  });
+  const handleCreateProject = () => {
+    if (projectSettings.bundlerEnabled) {
+      const newBundlerWallets = Array.from({
+        length: projectSettings.bundlerWalletCount
+      }, (_, index) => ({
+        id: index + 1,
+        amount: projectSettings.useRandomAmounts ? Math.random() * (projectSettings.maxBuy - projectSettings.minBuy) + projectSettings.minBuy : projectSettings.minBuy
+      }));
+      setBundlerWallets(newBundlerWallets);
+      setIsBundlerEnabled(true);
+    } else {
+      setBundlerWallets([]);
+      setIsBundlerEnabled(false);
+    }
+    setIsDialogOpen(false);
+  };
+  const handleLaunchBundle = () => {
+    setIsBundleLaunched(true);
+    // Add logic for launching the bundle
+  };
+  const handleCreateToken = async () => {
+    try {
+      const newToken = await tokenCreationService.createToken(tokenDetails);
+      setTokenDetails({
+        ...tokenDetails
+      });
+      setIsTokenCreated(true);
+      setSelectedToken({
+        id: Date.now(),
+        address: newToken.address,
+        name: newToken.name,
+        price: newToken.price,
+        priceChange: newToken.priceChange,
+        marketCap: newToken.marketCap,
+        totalValue: 0,
+        volume: newToken.volume
+      });
+      toast.success("Token created successfully");
+    } catch (error) {
+      toast.error("Failed to create token");
+    }
+  };
+  const handleCreateMarketId = () => {
+    // Add logic for creating market ID
   };
   const renderRightPanelContent = () => {
     if (!selectedToken) {
@@ -226,60 +300,163 @@ export function Bundler() {
       </Card>
       <div className="grid grid-cols-12 gap-2">
         <Card className="col-span-3  bg-[#Fff] p-2 rounded">
-          <CardContent className="p-2">
-            <div className="flex flex-col gap-2">
-              <div>
-                <Label className="text-[10px] text-[#2C406E] mb-1 block">
-                  Bundler Mode
-                </Label>
-                <Select value={selectedBundlerMode} onValueChange={setSelectedBundlerMode}>
-                  <SelectTrigger className="h-6 bg-[#FFF]  border-opacity-30 text-[10px]">
-                    <SelectValue placeholder="Select mode" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#FFF]  text-[10px]">
-                    <SelectItem value="flash">🚀 Flash</SelectItem>
-                    <SelectItem value="delayed">🌑 Delayed</SelectItem>
-                    <SelectItem value="block0">⭐ Block0</SelectItem>
-                    <SelectItem value="staggered">🌌 Staggered</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium" onClick={() => setIsMetaDialogOpen(true)}>
-                  New Meta
-                </Button>
-                <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium" onClick={() => setIsLaunchDialogOpen(true)}>
-                  Launchit
-                </Button>
-              </div>
-              
-              <div className="space-y-1 mt-3">
-                <Label className="text-[10px] text-[#2C406E] block">
-                  Tokens
-                </Label>
-                {tokens.map(token => <div key={token.id} className={`flex items-center gap-2 p-2 bg-[#F4F5FA] rounded ${selectedToken?.id === token.id ? "border border-[#2879fe]" : ""}`}>
-                    <span className="text-[10px] text-[#2C406E] flex-1">
-                      Token {token.id}
+          <CardHeader className="p-2">
+            <CardTitle className="text-[#2C406E] text-xs">
+              Token Creation
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 space-y-2">
+            {!isTokenCreated ? <>
+                <div className="flex items-center justify-center mb-2">
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] flex items-center justify-center">
+                      <PlusIcon className="w-6 h-6 text-white" />
+                    </div>
+                  </label>
+                  <input id="file-upload" type="file" className="hidden" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-[10px] text-[#2C406E]">
+                      Token Name:
+                    </Label>
+                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter token name" value={tokenDetails.name} onChange={e => setTokenDetails({
+                  ...tokenDetails,
+                  name: e.target.value
+                })} />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-[10px] text-[#2C406E]">
+                      Token Symbol:
+                    </Label>
+                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter token symbol" value={tokenDetails.symbol} onChange={e => setTokenDetails({
+                  ...tokenDetails,
+                  symbol: e.target.value
+                })} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-[#2C406E]">
+                    Description:
+                  </Label>
+                  <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter token description" value={tokenDetails.description} onChange={e => setTokenDetails({
+                ...tokenDetails,
+                description: e.target.value
+              })} />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-[10px] text-[#2C406E]">
+                      Telegram:
+                    </Label>
+                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter Telegram link" value={tokenDetails.telegram} onChange={e => setTokenDetails({
+                  ...tokenDetails,
+                  telegram: e.target.value
+                })} />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-[#2C406E]">
+                      Twitter:
+                    </Label>
+                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter Twitter link" value={tokenDetails.twitter} onChange={e => setTokenDetails({
+                  ...tokenDetails,
+                  twitter: e.target.value
+                })} />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-[#2C406E]">
+                      Website:
+                    </Label>
+                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter website URL" value={tokenDetails.website} onChange={e => setTokenDetails({
+                  ...tokenDetails,
+                  website: e.target.value
+                })} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-[#2C406E]">
+                    Buy Amount (SOL):
+                  </Label>
+                  <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" defaultValue="0.1" placeholder="Enter buy amount" value={tokenDetails.buyAmount} onChange={e => setTokenDetails({
+                ...tokenDetails,
+                buyAmount: e.target.value
+              })} />
+                </div>
+                <div className="flex gap-2">
+                  <Button className="w-full h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3" onClick={() => setIsWizardOpen(true)}>
+                    Blast Bundle
+                  </Button>
+                </div>
+              </> : <>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">
+                      Token Name:
                     </span>
-                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0 hover:text-[#2879fe]" onClick={() => {
-                  /* Your copy handler */
-                }}>
-                      <ClipboardCopy className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0 hover:text-[#2879fe]" onClick={() => handleTokenSelect(token)}>
-                      <MousePointerClick className="h-3 w-3" />
-                    </Button>
-                  </div>)}
-              </div>
-            </div>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">
+                      Token Symbol:
+                    </span>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.symbol}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">
+                      Description:
+                    </span>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.description}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">
+                      Telegram:
+                    </span>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.telegram}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">Twitter:</span>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.twitter}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">Website:</span>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.website}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[10px] text-[#2C406E]">
+                      Buy Amount (SOL):
+                    </span>
+                    <span className="text-[10px] text-[#2C406E] font-semibold">
+                      {tokenDetails.buyAmount}
+                    </span>
+                  </div>
+                </div>
+                <Button className="w-full  h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3" onClick={handleCreateMarketId}>
+                  Create Market ID
+                </Button>
+              </>}
           </CardContent>
         </Card>
+
         <Card className="col-span-6  bg-[#Fff] p-2 rounded">
           <CardContent className="p-2">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-[10px] text-[#2C406E]">Launch</span>
+                <span className="text-[10px] text-[#2C406E]">
+                  Activity Logs
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3">
@@ -289,9 +466,6 @@ export function Bundler() {
             </div>
             <div className="bg-[#F4F5FA] p-2 rounded h-[400px] overflow-y-auto">
               <div className="space-y-1">
-                <Label className="text-[10px] text-[#2C406E] block mb-2">
-                  Logs
-                </Label>
                 {logs.map((log, index) => <div key={index} className="flex items-center gap-2 text-[10px] text-[#2C406E]">
                     <CheckCircle2 className="h-3 w-3 text-green-500" />
                     <span>{log}</span>
@@ -308,5 +482,9 @@ export function Bundler() {
       </div>
       <TokenMetaDialog open={isMetaDialogOpen} onOpenChange={setIsMetaDialogOpen} onSave={handleSaveTokenMeta} />
       <LaunchDialog open={isLaunchDialogOpen} onOpenChange={setIsLaunchDialogOpen} mode={selectedBundlerMode} />
+      <BundlerWizardDialog open={isWizardOpen} onOpenChange={setIsWizardOpen} onModeSelect={mode => {
+      setSelectedBundlerMode(mode);
+      setIsLaunchDialogOpen(true);
+    }} />
     </div>;
 }

@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { LogEntry } from "@/components/ActivityLogger";
 export function useActivityLogger() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout>();
   const addLog = useCallback((message: string, status: LogEntry["status"] = "pending") => {
     setLogs(prev => [...prev, {
       message,
@@ -30,6 +31,16 @@ export function useActivityLogger() {
   }, [resetLogs]);
   const endProcess = useCallback(() => {
     setIsProcessing(false);
+    timeoutRef.current = setTimeout(() => {
+      setIsDialogOpen(false);
+    }, 2000);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, []);
   return {
     logs,
