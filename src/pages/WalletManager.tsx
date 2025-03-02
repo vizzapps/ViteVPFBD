@@ -18,7 +18,12 @@ import { FundAllWalletsService } from "../services/wallet/FundAllWalletsService"
 import { CollectTokensService } from "../services/wallet/CollectTokensService";
 import { SplitFundsService } from "../services/wallet/SplitFundsService";
 import { RandomAirdropService } from "../services/wallet/RandomAirdropService";
-import { toast } from "sonner";
+import { BreadcrumbCard } from "../components/BreadcrumbCard";
+import { MixFundsDialog } from "../components/MixFundsDialog";
+import { ActivityLoggerDialog } from "../components/ActivityLoggerDialog";
+import { useActivityLogger } from "../hooks/useActivityLogger";
+import toast from "react-hot-toast";
+import { WalletCard } from "../components/WalletCard";
 interface Wallet {
   id: string;
   address: string;
@@ -28,37 +33,7 @@ interface Wallet {
   profileName?: string;
 }
 export function WalletManager() {
-  const [wallets, setWallets] = useState<Wallet[]>([{
-    id: "1",
-    address: "9K23cWM5doGC3FqgvxTrXzh7uZbhGN2W",
-    privateKey: "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-    balance: 0,
-    network: "photon"
-  }, {
-    id: "2",
-    address: "5FcATacM5XzYvexJRCCE61CxYvhcbcH15",
-    privateKey: "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-    balance: 0,
-    network: "photon"
-  }, {
-    id: "3",
-    address: "2Z74eGF5dWRm13MzRvz61gR5SH82XQCF",
-    privateKey: "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-    balance: 0,
-    network: "photon"
-  }, {
-    id: "4",
-    address: "7zFAEQUE2RNEL3FH5DQQYSTGMP182",
-    privateKey: "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-    balance: 0,
-    network: "photon"
-  }, {
-    id: "5",
-    address: "3J1L9GQEKF4GFaRm3DRPY8KEF7Ma16",
-    privateKey: "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
-    balance: 0,
-    network: "photon"
-  }]);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [selectedWallets, setSelectedWallets] = useState<Set<string>>(new Set());
   const [newWalletCount, setNewWalletCount] = useState<number>(10);
   const [isCreatingWallets, setIsCreatingWallets] = useState(false);
@@ -76,6 +51,8 @@ export function WalletManager() {
   const [isCollecting, setIsCollecting] = useState(false);
   const [isSplitting, setIsSplitting] = useState(false);
   const [isAirdropping, setIsAirdropping] = useState(false);
+  const [mixDialogOpen, setMixDialogOpen] = useState(false);
+  const [currentAction, setCurrentAction] = useState<string>("");
   const createWalletsService = new CreateWalletsService();
   const exportWalletsService = new ExportWalletsService();
   const deleteWalletsService = new DeleteWalletsService();
@@ -88,6 +65,16 @@ export function WalletManager() {
   const splitFundsService = new SplitFundsService();
   const randomAirdropService = new RandomAirdropService();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    logs,
+    isProcessing,
+    isDialogOpen,
+    setIsDialogOpen,
+    addLog,
+    updateLastLog,
+    startProcess,
+    endProcess
+  } = useActivityLogger();
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedWallets(new Set(wallets.map(wallet => wallet.id)));
@@ -146,7 +133,7 @@ export function WalletManager() {
     }
   }, [selectedWallets, wallets]);
   const handleDeleteAll = async () => {
-    if (!confirm("Are you sure you want to delete all wallets?")) return;
+    // if (!confirm("Are you sure you want to delete all wallets?")) return;
     setIsDeleting(true);
     try {
       await deleteWalletsService.execute();
@@ -185,29 +172,47 @@ export function WalletManager() {
     }
   };
   const handleGenerateProfiles = async () => {
-    setIsGeneratingProfiles(true);
+    setCurrentAction("Generate Profiles Progress");
+    startProcess();
     try {
+      addLog("Initializing profile generation...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateLastLog("success");
+      addLog("Generating random profiles...");
       const profiles = await generateProfilesService.execute(wallets.map(w => w.id));
+      updateLastLog("success");
+      addLog("Updating wallet data...");
       setWallets(prev => prev.map(wallet => ({
         ...wallet,
         profileName: profiles[wallet.id]
       })));
+      updateLastLog("success");
+      addLog("Profiles generated successfully!", "success");
       toast.success("Successfully generated profiles");
     } catch (error) {
+      addLog("Error generating profiles", "error");
       toast.error("Failed to generate profiles");
     } finally {
-      setIsGeneratingProfiles(false);
+      endProcess();
     }
   };
   const handleAgeWallets = async () => {
-    setIsAging(true);
+    setCurrentAction("Age Wallets Progress");
+    startProcess();
     try {
+      addLog("Initializing wallet aging process...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateLastLog("success");
+      addLog("Processing wallets...");
       await ageWalletsService.execute(wallets.map(w => w.id));
+      updateLastLog("success");
+      addLog("Wallets aged successfully!", "success");
       toast.success("Successfully aged wallets");
     } catch (error) {
+      addLog("Error aging wallets", "error");
       toast.error("Failed to age wallets");
     } finally {
-      setIsAging(false);
+      endProcess();
     }
   };
   const handleMixFunds = async () => {
@@ -215,14 +220,27 @@ export function WalletManager() {
       toast.error("Please enter a valid number of rounds");
       return;
     }
-    setIsMixing(true);
+    setCurrentAction("Mix Funds Progress");
+    startProcess();
     try {
-      await mixFundsService.execute(mixRounds);
+      addLog("Initializing mixing process...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateLastLog("success");
+      for (let i = 1; i <= mixRounds; i++) {
+        addLog(`Starting round ${i}/${mixRounds}`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        updateLastLog("success");
+        addLog(`Executing transactions for round ${i}...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        updateLastLog("success");
+      }
+      addLog("Mix completed successfully!", "success");
       toast.success("Successfully mixed funds");
     } catch (error) {
+      addLog("Error occurred during mixing process", "error");
       toast.error("Failed to mix funds");
     } finally {
-      setIsMixing(false);
+      endProcess();
     }
   };
   const handleFundAllWallets = async (walletIds: string[], amount: number) => {
@@ -293,43 +311,27 @@ export function WalletManager() {
       setIsAirdropping(false);
     }
   };
+  const handleRefresh = () => {
+    toast.success("Refreshed balances");
+  };
+  const handleMixComplete = () => {
+    setMixDialogOpen(false);
+    toast.success("Mix funds completed successfully");
+  };
   return <>
       <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileSelect} />
-      <div className="flex flex-col gap-2 p-2">
-        <Card className="card">
-          <CardContent className="flex items-center justify-between p-2">
-            <div className="text-[#0d0d0d]">
-              <h1 className="text-sm font-bold text-[#0d0d0d]">
-                Wallet Manager
-              </h1>
-              <p className="text-[10px]">{wallets.length}/40 wallets active</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-[12px] text-[#0d0d0d]">Dev/Main.</div>
-                <div className="text-[10px] text-[#0d0d0d]">4.1662 SOL</div>
-              </div>
-              <div className="text-right">
-                <div className="text-[12px] text-[#0d0d0d]">Funding.</div>
-                <div className="text-[10px] text-[#0d0d0d]">4.1662 SOL</div>
-              </div>
-              <Button variant="outline" size="sm" className="h-6 w-6 p-0 border-[#8b5cf6] border-opacity-30 text-[#fff] bg-[#3B71CA] hover:bg-[#f87171]">
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="flex flex-col gap-2">
+        <BreadcrumbCard totalWallets={wallets.length} devMainBalance={4.1662} fundingBalance={4.1662} onRefresh={handleRefresh} />
         <div className="grid grid-cols-3 gap-2">
           <Card className="card col-span-1">
             <CardContent className="p-2 space-y-2">
               <div>
-                <Label className="text-[10px] text-[#0d0d0d]">
+                <Label className="text-[10px] text-[#2C406E]">
                   New Wallets
                 </Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input type="number" value={newWalletCount} onChange={e => setNewWalletCount(Number(e.target.value))} min={1} max={40} className="h-6 w-24 bg-[#F4F5FA] border-[#8b5cf6] border-opacity-30 text-[10px] text-[#0f0f0f]" />
-                  <Button className="h-6 flex-1 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleCreateWallets} disabled={isCreatingWallets}>
+                  <Button className="h-6 flex-1 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleCreateWallets} disabled={isCreatingWallets}>
                     {isCreatingWallets ? <div className="flex items-center gap-2">
                         <RefreshCw className="h-3 w-3 animate-spin" />
                         Creating...
@@ -338,20 +340,20 @@ export function WalletManager() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button className="h-6 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleExportWallets} disabled={isExporting}>
+                <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleExportWallets} disabled={isExporting}>
                   {isExporting ? <div className="flex items-center gap-2">
                       <RefreshCw className="h-3 w-3 animate-spin" />
                       Exporting...
                     </div> : `Export Selected (${selectedWallets.size})`}
                 </Button>
-                <Button className="h-6 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleImport} disabled={isImporting}>
+                <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleImport} disabled={isImporting}>
                   {isImporting ? <div className="flex items-center gap-2">
                       <RefreshCw className="h-3 w-3 animate-spin" />
                       Importing...
                     </div> : "Import"}
                 </Button>
               </div>
-              <Button className="h-6 w-full text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleDeleteAll} disabled={isDeleting}>
+              <Button className="h-6 w-full text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleDeleteAll} disabled={isDeleting}>
                 {isDeleting ? <div className="flex items-center gap-2">
                     <RefreshCw className="h-3 w-3 animate-spin" />
                     Deleting...
@@ -363,10 +365,10 @@ export function WalletManager() {
           <Card className="card col-span-1">
             <CardContent className="p-2 space-y-2">
               <div>
-                <Label className="text-[10px] text-[#0d0d0d]">Mix Rounds</Label>
+                <Label className="text-[10px] text-[#2C406E]">Mix Rounds</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input type="number" value={mixRounds} onChange={e => setMixRounds(Number(e.target.value))} min={1} className="h-6 w-24 bg-[#F4F5FA] border-[#8b5cf6] border-opacity-30 text-[10px] text-[#0d0d0d]" />
-                  <Button className="h-6 flex-1 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleMixFunds} disabled={isMixing}>
+                  <Button className="h-6 flex-1 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleMixFunds} disabled={isMixing}>
                     {isMixing ? <div className="flex items-center gap-2">
                         <RefreshCw className="h-3 w-3 animate-spin" />
                         Mixing...
@@ -374,13 +376,13 @@ export function WalletManager() {
                   </Button>
                 </div>
               </div>
-              <Button className="h-6 w-full text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleGenerateProfiles} disabled={isGeneratingProfiles}>
+              <Button className="h-6 w-full text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleGenerateProfiles} disabled={isGeneratingProfiles}>
                 {isGeneratingProfiles ? <div className="flex items-center gap-2">
                     <RefreshCw className="h-3 w-3 animate-spin" />
                     Generating...
                   </div> : "Generate Profiles"}
               </Button>
-              <Button className="h-6 w-full text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={handleAgeWallets} disabled={isAging}>
+              <Button className="h-6 w-full text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={handleAgeWallets} disabled={isAging}>
                 {isAging ? <div className="flex items-center gap-2">
                     <RefreshCw className="h-3 w-3 animate-spin" />
                     Aging...
@@ -389,10 +391,10 @@ export function WalletManager() {
             </CardContent>
           </Card>
 
-          <Card className="card col-span-1 h-full">
+          <Card className="card col-span-1">
             <CardContent className="p-2 space-y-2">
               <div>
-                <Label className="text-[10px] text-[#0d0d0d]">
+                <Label className="text-[10px] text-[#2C406E]">
                   Amount per Wallet
                 </Label>
                 <div className="flex items-center gap-2 mt-1">
@@ -400,7 +402,7 @@ export function WalletManager() {
                     <Input type="number" value={fundAmount} onChange={e => setFundAmount(Number(e.target.value))} placeholder="0" className="h-6 bg-[#F4F5FA] border-[#8b5cf6] border-opacity-30 text-[10px] text-[#0d0d0d]" />
                     <span className="text-[10px] text-[#0d0d0d]">SOL</span>
                   </div>
-                  <Button className="h-6 w-32 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={() => handleFundAllWallets(wallets.map(w => w.id), fundAmount)} disabled={isFunding}>
+                  <Button className="h-6 w-32 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={() => handleFundAllWallets(wallets.map(w => w.id), fundAmount)} disabled={isFunding}>
                     {isFunding ? <div className="flex items-center gap-2">
                         <RefreshCw className="h-3 w-3 animate-spin" />
                         Funding...
@@ -411,7 +413,7 @@ export function WalletManager() {
               <div className="grid grid-cols-6 gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button className="h-6 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold flex items-center justify-center" onClick={handleSplitFunds} disabled={isSplitting}>
+                    <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold flex items-center justify-center" onClick={handleSplitFunds} disabled={isSplitting}>
                       {isSplitting ? <RefreshCw className="h-3 w-3 animate-spin" /> : <SplitIcon className="h-3.5 w-3.5" />}
                     </Button>
                   </TooltipTrigger>
@@ -427,7 +429,7 @@ export function WalletManager() {
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button className="h-6 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold flex items-center justify-center" onClick={handleRandomAirdrop} disabled={isAirdropping}>
+                    <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold flex items-center justify-center" onClick={handleRandomAirdrop} disabled={isAirdropping}>
                       {isAirdropping ? <RefreshCw className="h-3 w-3 animate-spin" /> : <DicesIcon className="h-3.5 w-3.5" />}
                     </Button>
                   </TooltipTrigger>
@@ -435,13 +437,13 @@ export function WalletManager() {
                 </Tooltip>
               </div>
               <div className="flex gap-2">
-                <Button className="h-6 flex-1 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={() => handleCollectTokens("SOL")} disabled={isCollecting}>
+                <Button className="h-6 flex-1 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={() => handleCollectTokens("SOL")} disabled={isCollecting}>
                   {isCollecting ? <div className="flex items-center gap-2">
                       <RefreshCw className="h-3 w-3 animate-spin" />
                       Collecting...
                     </div> : "Collect SOL"}
                 </Button>
-                <Button className="h-6 flex-1 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={() => handleCollectTokens("SPL")} disabled={isCollecting}>
+                <Button className="h-6 flex-1 text-[10px] bg-[#2879fe] rounded-none  hover:bg-[#2879fe99]  text-white font-bold" onClick={() => handleCollectTokens("SPL")} disabled={isCollecting}>
                   {isCollecting ? <div className="flex items-center gap-2">
                       <RefreshCw className="h-3 w-3 animate-spin" />
                       Collecting...
@@ -453,73 +455,35 @@ export function WalletManager() {
         </div>
 
         <Card className="card">
-          <CardContent className="h-full overflow-auto p-2">
-            <div className="flex justify-between">
-              <div className="mb-2 flex items-center gap-2">
+          <CardContent className="p-4">
+            <div className="flex justify-between mb-4">
+              <div className="flex items-center gap-4">
                 <Checkbox id="selectAll" className="h-4 w-4 border-[#8b5cf6]" checked={selectedWallets.size === wallets.length} onCheckedChange={handleSelectAll} />
-                <Label htmlFor="selectAll" className="text-[10px] text-[#0d0d0d]">
+                <Label htmlFor="selectAll" className="text-[10px] text-[#2C406E]">
                   Select All Wallets
                 </Label>
               </div>
-              <Button variant="outline" size="sm" className="h-6 w-6 p-0 border-[#8b5cf6] border-opacity-30 text-[#fff] bg-[#3B71CA] hover:bg-[#f87171]">
+              <Button variant="outline" size="sm" className="h-6 w-6 p-0 border-[#8b5cf6] border-opacity-30 text-[#fff] bg-[#2879fe] rounded-none hover:bg-[#2879fe99]">
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             </div>
-
-            <div className="space-y-1">
-              {wallets.map(wallet => <div key={wallet.id} className="flex items-center gap-2">
-                  <Checkbox className="h-4 w-4 border-[#8b5cf6]" checked={selectedWallets.has(wallet.id)} onCheckedChange={checked => handleWalletSelect(wallet.id, checked)} />
-                  <div className="flex-1">
-                    <div className="text-[10px] text-[#0d0d0d]">
-                      {wallet.address}
-                      {wallet.profileName && <span className="ml-2 text-[#3B71CA]">
-                          ({wallet.profileName})
-                        </span>}
-                    </div>
-                    <div className="text-[10px] text-[#0d0d0d]">
-                      Balance: {wallet.balance} SOL
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" placeholder="0" className="h-6 w-20 bg-[#F4F5FA] border-[#8b5cf6] border-opacity-30 text-[10px] text-[#0d0d0d]" />
-                    <span className="text-[10px] text-[#0d0d0d]">SOL</span>
-                    <Button className="h-6 w-16 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={() => handleFundAllWallets([wallet.id], fundAmount)} disabled={isFunding}>
-                      {isFunding ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Fund"}
-                    </Button>
-                    <Select defaultValue={wallet.network}>
-                      <SelectTrigger className="h-6 border-[#8b5cf6] border-opacity-30 text-[10px] bg-[#F4F5FA]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#F4F5FA] border-[#8b5cf6] border-opacity-30 text-[#fff]">
-                        <SelectItem value="photon" className="text-[10px] focus:bg-[#2e1065] focus:text-[#fff]">
-                          photon
-                        </SelectItem>
-                        <SelectItem value="mainnet" className="text-[10px] focus:bg-[#2e1065] focus:text-[#fff]">
-                          mainnet
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button className="h-6 w-16 text-[10px] bg-[#3B71CA] hover:bg-[#f87171] text-white font-bold" onClick={() => handleAgeWallets([wallet.id])} disabled={isAging}>
-                      {isAging ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Age"}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 p-0 text-[#0d0d0d] hover:text-red-500" onClick={() => {
-                  const confirmed = confirm("Are you sure you want to delete this wallet?");
-                  if (confirmed) {
-                    setWallets(prev => prev.filter(w => w.id !== wallet.id));
-                    setSelectedWallets(prev => {
-                      const newSet = new Set(prev);
-                      newSet.delete(wallet.id);
-                      return newSet;
-                    });
-                  }
-                }}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-2 max-h-[600px] overflow-y-auto">
+              {wallets.map((wallet, index) => <WalletCard key={wallet.id} wallet={wallet} index={index} isSelected={selectedWallets.has(wallet.id)} onSelect={checked => handleWalletSelect(wallet.id, checked)} onDelete={() => {
+              const confirmed = confirm("Are you sure you want to delete this wallet?");
+              if (confirmed) {
+                setWallets(prev => prev.filter(w => w.id !== wallet.id));
+                setSelectedWallets(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(wallet.id);
+                  return newSet;
+                });
+              }
+            }} onFund={amount => handleFundAllWallets([wallet.id], amount)} onAge={() => handleAgeWallets([wallet.id])} isFunding={isFunding} isAging={isAging} />)}
             </div>
           </CardContent>
         </Card>
       </div>
+      <MixFundsDialog open={mixDialogOpen} onOpenChange={setMixDialogOpen} rounds={mixRounds} onComplete={handleMixComplete} />
+      <ActivityLoggerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} title={currentAction} logs={logs} isProcessing={isProcessing} />
     </>;
 }

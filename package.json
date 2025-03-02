@@ -25,7 +25,10 @@
     "react-router-dom": "latest",
     "sonner": "latest",
     "@radix-ui/react-checkbox": "latest",
-    "@radix-ui/react-select": "latest"
+    "@radix-ui/react-select": "latest",
+    "@radix-ui/react-dialog": "latest",
+    "react-hot-toast": "latest",
+    "@/components/ActivityLogger": "latest"
   },
   "devDependencies": {
     "@types/node": "^20.11.18",
