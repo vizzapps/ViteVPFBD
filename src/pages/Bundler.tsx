@@ -4,13 +4,19 @@ import { Card, CardContent, CardTitle, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Share2, RefreshCw, Coins, ArrowUp, ArrowDown, CheckCircle2, ClipboardCopy, MousePointerClick, PlusIcon } from "lucide-react";
+import toast from "react-hot-toast";
+import { Copy, Share2, RefreshCw, Coins, ArrowUp, ArrowDown, CheckCircle2, ClipboardCopy, MousePointerClick, Plus, PlusIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { TokenMetaDialog } from "../components/TokenMetaDialog";
 import { Badge } from "@/components/ui/badge";
 import { LaunchDialog } from "../components/LaunchDialog";
 import { TokenCreationService } from "../services/token/TokenCreationService";
 import { BundlerWizardDialog } from "../components/BundlerWizardDialog";
+import { BundlerAccordion } from "../components/BundlerAccordion";
+import { ManualTokenDialog } from "../components/ManualTokenDialog";
+import { CloneTokenDialog } from "../components/CloneTokenDialog";
+import { TokenMetadataDialog } from "../components/TokenMetadataDialog";
+import { ManualBuyDialog } from "../components/ManualBuyDialog";
 interface Token {
   id: number;
   address: string;
@@ -20,6 +26,7 @@ interface Token {
   marketCap: number;
   totalValue: number;
   volume: number;
+  imageUrl?: string;
 }
 interface Wallet {
   id: number;
@@ -28,6 +35,15 @@ interface Wallet {
 }
 interface WalletWithBalance extends Wallet {
   tokenBalance?: number;
+}
+interface TokenDetails {
+  name: string;
+  symbol: string;
+  description?: string;
+  telegram?: string;
+  twitter?: string;
+  website?: string;
+  buyAmount: string;
 }
 export function Bundler() {
   const [tokens, setTokens] = useState<Token[]>(Array.from({
@@ -40,7 +56,8 @@ export function Bundler() {
     priceChange: i % 2 === 0 ? 2.5 : -1.2,
     marketCap: 5230,
     totalValue: 0,
-    volume: 12500
+    volume: 12500,
+    imageUrl: `https://example.com/token${i + 1}.png`
   })));
   const [wallets, setWallets] = useState<Wallet[]>(Array.from({
     length: 8
@@ -68,27 +85,14 @@ export function Bundler() {
   const [isLaunchDialogOpen, setIsLaunchDialogOpen] = useState(false);
   const [selectedBundlerMode, setSelectedBundlerMode] = useState("delayed");
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const tokenCreationService = new TokenCreationService();
-  const handleTokenSelect = (token: Token) => {
-    const newSelected = token === selectedToken ? null : token;
-    setSelectedToken(newSelected);
-    if (newSelected) {
-      setSelectedMode("delayed");
-      setSelectedTokenAddress(newSelected.address);
-    } else {
-      setSelectedMode("delayed");
-      setSelectedTokenAddress("E2vB...pump");
-    }
-  };
-  const handleSaveTokenMeta = (newToken: Token) => {
-    setTokens(prev => [newToken, ...prev]);
-  };
-  const [bundlerWallets, setBundlerWallets] = useState([]);
-  const [isBundlerEnabled, setIsBundlerEnabled] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isBundleLaunched, setIsBundleLaunched] = useState(false);
+  const [activeTab, setActiveTab] = useState("price");
+  const [targetMarketCap, setTargetMarketCap] = useState("1000");
+  const [isMarketCapEnabled, setIsMarketCapEnabled] = useState(false);
+  const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false);
+  const [isTokenMetaDialogOpen, setIsTokenMetaDialogOpen] = useState(false);
   const [isTokenCreated, setIsTokenCreated] = useState(false);
-  const [tokenDetails, setTokenDetails] = useState({
+  const [tokenDetails, setTokenDetails] = useState<TokenDetails>({
     name: "",
     symbol: "",
     description: "",
@@ -97,36 +101,38 @@ export function Bundler() {
     website: "",
     buyAmount: "0.1"
   });
-  const [projectSettings, setProjectSettings] = useState({
-    tokenType: "",
-    bundlerEnabled: false,
-    bundlerWalletCount: 10,
-    delayBundlingEnabled: false,
-    bundlingDelay: 0,
-    initialSupplyToBundle: 1000000,
-    useRandomAmounts: false,
-    minBuy: 0.1,
-    maxBuy: 1
-  });
-  const handleCreateProject = () => {
-    if (projectSettings.bundlerEnabled) {
-      const newBundlerWallets = Array.from({
-        length: projectSettings.bundlerWalletCount
-      }, (_, index) => ({
-        id: index + 1,
-        amount: projectSettings.useRandomAmounts ? Math.random() * (projectSettings.maxBuy - projectSettings.minBuy) + projectSettings.minBuy : projectSettings.minBuy
-      }));
-      setBundlerWallets(newBundlerWallets);
-      setIsBundlerEnabled(true);
-    } else {
-      setBundlerWallets([]);
-      setIsBundlerEnabled(false);
-    }
-    setIsDialogOpen(false);
+  const [isManualBuyOpen, setIsManualBuyOpen] = useState(false);
+  const tokenCreationService = new TokenCreationService();
+  const handleTokenMetadataSave = (metadata: any) => {
+    const newToken = {
+      id: Date.now(),
+      address: `${metadata.symbol.toLowerCase()}...${Math.random().toString(36).substring(2, 6)}`,
+      name: metadata.name,
+      price: 0.001,
+      priceChange: 2.5,
+      marketCap: 1000,
+      totalValue: 0,
+      volume: 5000,
+      imageUrl: metadata.imageUrl
+    };
+    setTokens(prevTokens => [newToken, ...prevTokens]);
+    setSelectedToken(newToken);
+    setIsTokenMetaDialogOpen(false);
+    toast.success("Token created and selected successfully");
   };
-  const handleLaunchBundle = () => {
-    setIsBundleLaunched(true);
-    // Add logic for launching the bundle
+  const handleTokenSelect = (token: Token) => {
+    setSelectedToken(prevToken => prevToken?.id === token.id ? null : token);
+    if (selectedToken?.id !== token.id) {
+      setSelectedMode("delayed");
+      setSelectedTokenAddress(token.address);
+      const rightPanel = document.querySelector(".right-panel");
+      rightPanel?.scrollIntoView({
+        behavior: "smooth"
+      });
+    }
+  };
+  const handleSaveTokenMeta = (newToken: Token) => {
+    setTokens(prev => [newToken, ...prev]);
   };
   const handleCreateToken = async () => {
     try {
@@ -199,63 +205,73 @@ export function Bundler() {
             </div>
           </div>
         </div>
+
         <div className="bg-[#F4F5FA] p-2 rounded">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-              <span className="text-[10px] text-[#2C406E]">Price</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] text-[#2879fe] font-medium">
-                ${selectedToken.price}
-              </span>
-              <span className={`flex items-center text-[10px] ${selectedToken.priceChange >= 0 ? "text-green-500" : "text-red-500"}`}>
-                {selectedToken.priceChange >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                {Math.abs(selectedToken.priceChange)}%
-              </span>
-            </div>
+          <div className="flex w-full mb-2">
+            <Button className={`flex-1 h-5 text-[10px] ${activeTab === "price" ? "bg-[#2879fe] text-white" : "bg-white text-[#2C406E]"} rounded-none hover:bg-[#2879fe99] font-medium`} onClick={() => setActiveTab("price")}>
+              Price
+            </Button>
+            <Button className={`flex-1 h-5 text-[10px] ${activeTab === "marketcap" ? "bg-[#2879fe] text-white" : "bg-white text-[#2C406E]"} rounded-none hover:bg-[#2879fe99] font-medium`} onClick={() => setActiveTab("marketcap")}>
+              Market Cap
+            </Button>
           </div>
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-[10px] text-[#2C406E]">Market Cap</span>
-            <span className="text-[10px] text-[#2879fe] font-medium">
-              ${selectedToken.marketCap}K
-            </span>
-          </div>
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-[10px] text-[#2C406E]">24h Volume</span>
-            <span className="text-[10px] text-[#2879fe] font-medium">
-              ${selectedToken.volume}
-            </span>
-          </div>
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-[10px] text-[#2C406E]">Total Value</span>
-            <span className="text-[10px] text-green-500 font-medium">
-              ${selectedToken.totalValue}
-            </span>
-          </div>
-        </div>
-        <div className="bg-[#F4F5FA] p-2 rounded">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[10px] text-[#2C406E]">Launch Wallets</span>
-            <span className="text-[10px] text-[#2879fe] font-medium">
-              {launchWallets.length} wallets
-            </span>
-          </div>
-          <div className="max-h-[100px] overflow-y-auto space-y-1">
-            {launchWallets.map(wallet => <div key={wallet.id} className="flex items-center justify-between p-1 bg-white rounded">
+          {activeTab === "price" ? <>
+              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 bg-green-500 rounded-full"></div>
-                  <span className="text-[9px] text-[#2C406E]">
-                    {wallet.address}
+                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                  <span className="text-[10px] text-[#2C406E]">Price</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-[#2879fe] font-medium">
+                    ${selectedToken.price}
+                  </span>
+                  <span className={`flex items-center text-[10px] ${selectedToken.priceChange >= 0 ? "text-green-500" : "text-red-500"}`}>
+                    {selectedToken.priceChange >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                    {Math.abs(selectedToken.priceChange)}%
                   </span>
                 </div>
-                <span className="text-[9px] text-[#2879fe] font-medium">
-                  {wallet.tokenBalance?.toFixed(2) || "0.00"}{" "}
-                  {selectedToken.name}
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-[10px] text-[#2C406E]">Market Cap</span>
+                <span className="text-[10px] text-[#2879fe] font-medium">
+                  ${selectedToken.marketCap}K
                 </span>
-              </div>)}
-          </div>
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-[10px] text-[#2C406E]">24h Volume</span>
+                <span className="text-[10px] text-[#2879fe] font-medium">
+                  ${selectedToken.volume}
+                </span>
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-[10px] text-[#2C406E]">Total Value</span>
+                <span className="text-[10px] text-green-500 font-medium">
+                  ${selectedToken.totalValue}
+                </span>
+              </div>
+            </> : <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] text-[#2C406E]">
+                  Enable Market Cap
+                </Label>
+                <Switch checked={isMarketCapEnabled} onCheckedChange={setIsMarketCapEnabled} className="data-[state=checked]:bg-[#2879fe]" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-[#2C406E]">
+                  Target Market Cap (K)
+                </Label>
+                <div className="flex gap-2">
+                  <Input type="number" value={targetMarketCap} onChange={e => setTargetMarketCap(e.target.value)} disabled={!isMarketCapEnabled} className="h-6 bg-[#F4F5FA] border-[#8b5cf6] border-opacity-30 text-[10px]" />
+                  <Button disabled={!isMarketCapEnabled} className="h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3" onClick={() => {
+                toast.success("Market cap adjustment started");
+              }}>
+                    Start
+                  </Button>
+                </div>
+              </div>
+            </div>}
         </div>
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-[10px] text-[#2C406E]">Only Dev</Label>
@@ -300,191 +316,92 @@ export function Bundler() {
       </Card>
       <div className="grid grid-cols-12 gap-2">
         <Card className="col-span-3  bg-[#Fff] p-2 rounded">
-          <CardHeader className="p-2">
+          <CardHeader className="p-2 flex flex-row items-center justify-between">
             <CardTitle className="text-[#2C406E] text-xs">
               Token Creation
             </CardTitle>
+            <Button className="h-6 px-2 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium" onClick={() => setIsTokenMetaDialogOpen(true)}>
+              <Plus className="h-3 w-3 mr-1" />
+              New
+            </Button>
           </CardHeader>
           <CardContent className="p-2 space-y-2">
-            {!isTokenCreated ? <>
-                <div className="flex items-center justify-center mb-2">
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#6366f1] flex items-center justify-center">
-                      <PlusIcon className="w-6 h-6 text-white" />
+            <div className="space-y-2 max-h-[200px] overflow-y-auto border-t border-gray-100 pt-2">
+              {tokens.map(token => <div key={token.id} className="flex items-center justify-between p-2 bg-[#F4F5FA] rounded-lg hover:bg-[#E4E6F0] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#2879fe] to-[#8b5cf6] flex items-center justify-center">
+                      {token.imageUrl ? <img src={token.imageUrl} alt={token.name} className="h-full w-full rounded-full object-cover" /> : <Coins className="h-4 w-4 text-white" />}
                     </div>
-                  </label>
-                  <input id="file-upload" type="file" className="hidden" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Label className="text-[10px] text-[#2C406E]">
-                      Token Name:
-                    </Label>
-                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter token name" value={tokenDetails.name} onChange={e => setTokenDetails({
-                  ...tokenDetails,
-                  name: e.target.value
-                })} />
+                    <div>
+                      <div className="text-sm font-medium text-[#2C406E]">
+                        {token.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {token.address}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <Label className="text-[10px] text-[#2C406E]">
-                      Token Symbol:
-                    </Label>
-                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter token symbol" value={tokenDetails.symbol} onChange={e => setTokenDetails({
-                  ...tokenDetails,
-                  symbol: e.target.value
-                })} />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-[10px] text-[#2C406E]">
-                    Description:
-                  </Label>
-                  <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter token description" value={tokenDetails.description} onChange={e => setTokenDetails({
-                ...tokenDetails,
-                description: e.target.value
-              })} />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <Label className="text-[10px] text-[#2C406E]">
-                      Telegram:
-                    </Label>
-                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter Telegram link" value={tokenDetails.telegram} onChange={e => setTokenDetails({
-                  ...tokenDetails,
-                  telegram: e.target.value
-                })} />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-[#2C406E]">
-                      Twitter:
-                    </Label>
-                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter Twitter link" value={tokenDetails.twitter} onChange={e => setTokenDetails({
-                  ...tokenDetails,
-                  twitter: e.target.value
-                })} />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-[#2C406E]">
-                      Website:
-                    </Label>
-                    <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" placeholder="Enter website URL" value={tokenDetails.website} onChange={e => setTokenDetails({
-                  ...tokenDetails,
-                  website: e.target.value
-                })} />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-[10px] text-[#2C406E]">
-                    Buy Amount (SOL):
-                  </Label>
-                  <Input className="h-6  border-[#8b5cf6] border-opacity-30 text-[10px] text-[#2C406E]" defaultValue="0.1" placeholder="Enter buy amount" value={tokenDetails.buyAmount} onChange={e => setTokenDetails({
-                ...tokenDetails,
-                buyAmount: e.target.value
-              })} />
-                </div>
-                <div className="flex gap-2">
-                  <Button className="w-full h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3" onClick={() => setIsWizardOpen(true)}>
-                    Blast Bundle
+                  <Button onClick={() => handleTokenSelect(token)} className={`h-6 px-3 text-[10px] ${selectedToken?.id === token.id ? "bg-green-500 hover:bg-green-600" : "bg-[#2879fe] hover:bg-[#2879fe99]"} rounded-none text-white font-medium`}>
+                    {selectedToken?.id === token.id ? "Selected" : "Select"}
                   </Button>
-                </div>
-              </> : <>
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">
-                      Token Name:
-                    </span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.name}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">
-                      Token Symbol:
-                    </span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.symbol}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">
-                      Description:
-                    </span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.description}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">
-                      Telegram:
-                    </span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.telegram}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">Twitter:</span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.twitter}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">Website:</span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.website}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[10px] text-[#2C406E]">
-                      Buy Amount (SOL):
-                    </span>
-                    <span className="text-[10px] text-[#2C406E] font-semibold">
-                      {tokenDetails.buyAmount}
-                    </span>
-                  </div>
-                </div>
-                <Button className="w-full  h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3" onClick={handleCreateMarketId}>
-                  Create Market ID
-                </Button>
-              </>}
+                </div>)}
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-gray-100">
+              <Button className="h-6 flex-1 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium" onClick={() => setIsWizardOpen(true)}>
+                Bundle Launch
+              </Button>
+              <Button className="h-6 flex-1 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium" onClick={() => setIsManualBuyOpen(true)}>
+                Manual Buy
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="col-span-6  bg-[#Fff] p-2 rounded">
-          <CardContent className="p-2">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-[10px] text-[#2C406E]">
-                  Activity Logs
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button className="h-6 text-[10px] bg-[#2879fe] rounded-none hover:bg-[#2879fe99] text-white font-medium px-3">
-                  Show PnL
-                </Button>
-              </div>
-            </div>
-            <div className="bg-[#F4F5FA] p-2 rounded h-[400px] overflow-y-auto">
-              <div className="space-y-1">
-                {logs.map((log, index) => <div key={index} className="flex items-center gap-2 text-[10px] text-[#2C406E]">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    <span>{log}</span>
-                  </div>)}
-              </div>
-            </div>
+        <Card className="col-span-6  bg-[#Fff] p-0 rounded">
+          <CardContent className="p-0">
+            <BundlerAccordion logs={logs} wallets={wallets} onSellPercentage={(address, percentage) => {
+            toast.success(`Selling ${percentage}% from wallet ${address}`);
+          }} />
           </CardContent>
         </Card>
-        <Card className="col-span-3  bg-[#Fff] p-2 rounded">
+        <Card className="col-span-3  bg-[#Fff] p-2 rounded right-panel">
           <CardContent className="p-2 space-y-2">
             {renderRightPanelContent()}
           </CardContent>
         </Card>
       </div>
-      <TokenMetaDialog open={isMetaDialogOpen} onOpenChange={setIsMetaDialogOpen} onSave={handleSaveTokenMeta} />
+      <TokenMetaDialog open={isTokenMetaDialogOpen} onOpenChange={setIsTokenMetaDialogOpen} onSave={handleTokenMetadataSave} />
       <LaunchDialog open={isLaunchDialogOpen} onOpenChange={setIsLaunchDialogOpen} mode={selectedBundlerMode} />
       <BundlerWizardDialog open={isWizardOpen} onOpenChange={setIsWizardOpen} onModeSelect={mode => {
       setSelectedBundlerMode(mode);
       setIsLaunchDialogOpen(true);
     }} />
+      <ManualTokenDialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen} onSelect={token => {
+      setTokenDetails({
+        ...tokenDetails,
+        name: token.name,
+        symbol: token.symbol,
+        description: token.description || "",
+        telegram: token.telegram || "",
+        twitter: token.twitter || "",
+        website: token.website || ""
+      });
+      setIsTokenCreated(true);
+      toast.success("Token details loaded");
+    }} />
+      <CloneTokenDialog open={isCloneDialogOpen} onOpenChange={setIsCloneDialogOpen} onTokenFound={tokenData => {
+      setTokenDetails({
+        ...tokenDetails,
+        name: tokenData.name,
+        symbol: tokenData.symbol,
+        description: tokenData.description,
+        telegram: tokenData.telegram,
+        twitter: tokenData.twitter,
+        website: tokenData.website
+      });
+      setIsTokenCreated(true);
+      toast.success("Token details loaded");
+    }} />
+      <ManualBuyDialog open={isManualBuyOpen} onOpenChange={setIsManualBuyOpen} />
     </div>;
 }

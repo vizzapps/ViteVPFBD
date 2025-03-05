@@ -118,16 +118,10 @@ export function TokenMetaDialog({
         imageUrl = URL.createObjectURL(imageFile);
         setIsUploading(false);
       }
-      const newToken = await tokenMetaService.saveTokenMeta({
+      onSave({
         ...meta,
         imageUrl
       });
-      onSave(newToken);
-      toast.success("Token meta saved successfully");
-      onOpenChange(false);
-      if (imageUrl) {
-        cleanupImageUrl(imageUrl);
-      }
       setMeta({
         name: "",
         symbol: "",
